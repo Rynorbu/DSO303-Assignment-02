@@ -120,6 +120,7 @@ This step creates two things in AWS:
 cd infra\bootstrap
 terraform init
 terraform apply -var="github_repo=<your-username>/exam-platform-aws"
+# If you get "OIDC provider ... already exists", add:  -var="create_oidc_provider=false"
 ```
 Type `yes` when asked. At the end you will see two outputs. **Copy both into Notepad**:
 
@@ -462,7 +463,7 @@ If the lab can export or save the design, also save that file in `evidence/` as 
    ```powershell
    aws s3 rm s3://<state_bucket> --recursive
    cd infra\bootstrap
-   terraform destroy -var="github_repo=<your-username>/exam-platform-aws"
+   terraform destroy -var="github_repo=<your-username>/exam-platform-aws" -var="create_oidc_provider=false"
    ```
    If it complains that the bucket is not empty, it is because of old versions. Empty it in the S3 console with **Empty**, then re-run the command.
 5. A few days later, check **Billing → Bills** to confirm the charges have stopped.
