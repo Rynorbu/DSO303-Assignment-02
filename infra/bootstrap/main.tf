@@ -25,9 +25,40 @@ variable "github_repo" {
   type        = string
 }
 
+# GitHub now puts immutable numeric IDs in the OIDC "sub" claim:
+#   repo:<owner>@<owner_id>/<repo>@<repo_id>:ref:refs/heads/main
+# Find them in CloudTrail (failed AssumeRoleWithWebIdentity events) or with:
+#   curl https://api.github.com/repos/<owner>/<repo>  -> "id" and "owner.id"
+variable "github_owner_id" {
+  description = "Numeric GitHub account ID of the repo owner"
+  type        = string
+  default     = "*"
+}
+
+variable "github_repo_id" {
+  description = "Numeric GitHub repository ID"
+  type        = string
+  default     = "*"
+}
+
 variable "project" {
   type    = string
   default = "exam-platform"
+}
+
+locals {
+  repo_owner = split("/", var.github_repo)[0]
+  repo_name  = split("/", var.github_repo)[1]
+  # Both claim formats are accepted: the classic one and the one with immutable IDs.
+  repo_subjects = [
+    "repo:${var.github_repo}",
+    "repo:${local.repo_owner}@${var.github_owner_id}/${local.repo_name}@${var.github_repo_id}",
+  ]
+  allowed_subjects = flatten([for r in local.repo_subjects : [
+    "${r}:ref:refs/heads/main",
+    "${r}:pull_request",
+    "${r}:environment:*",
+  ]])
 }
 
 provider "aws" {
@@ -98,11 +129,7 @@ resource "aws_iam_role" "deploy" {
       Action    = "sts:AssumeRoleWithWebIdentity"
       Condition = {
         StringEquals = { "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com" }
-        StringLike = { "token.actions.githubusercontent.com:sub" = [
-          "repo:${var.github_repo}:ref:refs/heads/main",
-          "repo:${var.github_repo}:pull_request",
-          "repo:${var.github_repo}:environment:*",
-        ] }
+        StringLike   = { "token.actions.githubusercontent.com:sub" = local.allowed_subjects }
       }
     }]
   })

@@ -245,6 +245,9 @@ cd infra\bootstrap
 terraform init
 terraform apply -var="github_repo=<your-username>/exam-platform-aws"
 # If you get "OIDC provider ... already exists", add:  -var="create_oidc_provider=false"
+# GitHub puts numeric IDs in its login token. Add yours so AWS accepts it:
+#   -var="github_owner_id=<owner id>" -var="github_repo_id=<repo id>"
+# Get both from https://api.github.com/repos/<your-username>/<repo>  ("owner" -> "id", and the top-level "id")
 ```
 Type `yes` when asked. At the end you will see two outputs. **Copy both into Notepad**:
 
