@@ -14,9 +14,10 @@ SES_SENDER_EMAIL=$(clean "${RAW_SES_SENDER_EMAIL:-}")
 ALARM_EMAIL=$(clean "${RAW_ALARM_EMAIL:-}")
 SES_TEST_RECIPIENTS=$(clean "${RAW_SES_TEST_RECIPIENTS:-}")
 SES_TEST_RECIPIENTS=${SES_TEST_RECIPIENTS:-[]}
-# Optional (AWS Free plan accounts): DB_BACKUP_RETENTION_DAYS=1, DB_MULTI_AZ=true|false
+# Optional (AWS Free plan accounts): DB_BACKUP_RETENTION_DAYS=1, DB_USE_RDS_PROXY=false, DB_MULTI_AZ=true|false
 DB_BACKUP_RETENTION_DAYS=$(clean "${RAW_DB_BACKUP_RETENTION_DAYS:-}")
 DB_MULTI_AZ=$(clean "${RAW_DB_MULTI_AZ:-}" | tr '[:upper:]' '[:lower:]')
+DB_USE_RDS_PROXY=$(clean "${RAW_DB_USE_RDS_PROXY:-}" | tr '[:upper:]' '[:lower:]')
 
 errors=0
 fail() { echo "::error::$1"; errors=$((errors + 1)); }
@@ -33,6 +34,7 @@ if [[ -n "$DB_BACKUP_RETENTION_DAYS" ]] && ! [[ "$DB_BACKUP_RETENTION_DAYS" =~ ^
   fail "DB_BACKUP_RETENTION_DAYS must be a whole number from 1 to 35"
 fi
 if [[ -n "$DB_MULTI_AZ" && "$DB_MULTI_AZ" != "true" && "$DB_MULTI_AZ" != "false" ]]; then fail "DB_MULTI_AZ must be true or false"; fi
+if [[ -n "$DB_USE_RDS_PROXY" && "$DB_USE_RDS_PROXY" != "true" && "$DB_USE_RDS_PROXY" != "false" ]]; then fail "DB_USE_RDS_PROXY must be true or false"; fi
 [[ $errors -eq 0 ]] || exit 1
 
 {
@@ -45,6 +47,7 @@ if [[ -n "$DB_MULTI_AZ" && "$DB_MULTI_AZ" != "true" && "$DB_MULTI_AZ" != "false"
   echo "TF_VAR_ses_test_recipients=$SES_TEST_RECIPIENTS"
   if [[ -n "$DB_BACKUP_RETENTION_DAYS" ]]; then echo "TF_VAR_db_backup_retention_days=$DB_BACKUP_RETENTION_DAYS"; fi
   if [[ -n "$DB_MULTI_AZ" ]]; then echo "TF_VAR_db_multi_az=$DB_MULTI_AZ"; fi
+  if [[ -n "$DB_USE_RDS_PROXY" ]]; then echo "TF_VAR_enable_rds_proxy=$DB_USE_RDS_PROXY"; fi
 } >> "$GITHUB_ENV"
 
-echo "Settings OK: region=$AWS_REGION bucket=$TF_STATE_BUCKET role=${AWS_DEPLOY_ROLE_ARN##*/} sender=$SES_SENDER_EMAIL backup_days=${DB_BACKUP_RETENTION_DAYS:-7 (default)} multi_az=${DB_MULTI_AZ:-true (default)}"
+echo "Settings OK: region=$AWS_REGION bucket=$TF_STATE_BUCKET role=${AWS_DEPLOY_ROLE_ARN##*/} sender=$SES_SENDER_EMAIL backup_days=${DB_BACKUP_RETENTION_DAYS:-7 (default)} multi_az=${DB_MULTI_AZ:-true (default)} rds_proxy=${DB_USE_RDS_PROXY:-true (default)}"

@@ -47,6 +47,12 @@ variable "db_backup_retention_days" {
   }
 }
 
+variable "enable_rds_proxy" {
+  description = "Connection pooling between Lambda and RDS (production design). AWS Free plan accounts cannot create RDS Proxy: set false and the Lambdas connect directly (TLS + RDS-managed secret)."
+  type        = bool
+  default     = true
+}
+
 variable "db_multi_az" {
   description = "Synchronous standby in a second AZ. Keep true (required to survive the loss of an AZ); set false only if the AWS account plan refuses it."
   type        = bool

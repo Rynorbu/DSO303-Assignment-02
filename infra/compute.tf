@@ -11,11 +11,11 @@ data "archive_file" "backend" {
 }
 
 locals {
-  db_env = {
-    DB_HOST = aws_db_proxy.main.endpoint
+  db_env = merge({
+    DB_HOST = local.db_host
     DB_USER = aws_db_instance.main.username
     DB_NAME = aws_db_instance.main.db_name
-  }
+  }, var.enable_rds_proxy ? {} : { DB_SECRET_ARN = local.db_secret_arn })
 
   functions = {
     api = {
@@ -28,7 +28,6 @@ locals {
         UPLOADS_BUCKET    = aws_s3_bucket.uploads.bucket
       })
       statements = [
-        { Action = ["rds-db:connect"], Resource = [local.db_connect_arn] },
         { Action = ["sqs:SendMessage"], Resource = [aws_sqs_queue.main["marking"].arn] },
         { Action = ["s3:PutObject", "s3:GetObject"], Resource = ["${aws_s3_bucket.uploads.arn}/assignments/*"] },
         { Action = ["kms:GenerateDataKey", "kms:Decrypt"], Resource = [aws_kms_key.main.arn] },
@@ -54,7 +53,6 @@ locals {
         NOTIFY_QUEUE_URL  = aws_sqs_queue.main["notify"].url
       })
       statements = [
-        { Action = ["rds-db:connect"], Resource = [local.db_connect_arn] },
         { Action = ["sqs:SendMessage"], Resource = [aws_sqs_queue.main["marking"].arn, aws_sqs_queue.main["notify"].arn] },
         { Action = ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes"], Resource = [aws_sqs_queue.main["marking"].arn] },
       ]
@@ -66,7 +64,6 @@ locals {
       memory  = 256
       env     = merge(local.db_env, { NOTIFY_QUEUE_URL = aws_sqs_queue.main["notify"].url })
       statements = [
-        { Action = ["rds-db:connect"], Resource = [local.db_connect_arn] },
         { Action = ["s3:GetObject"], Resource = ["${aws_s3_bucket.uploads.arn}/assignments/*"] },
         { Action = ["kms:Decrypt"], Resource = [aws_kms_key.main.arn] },
         { Action = ["sqs:SendMessage"], Resource = [aws_sqs_queue.main["notify"].arn] },
@@ -90,7 +87,7 @@ locals {
       timeout    = 300
       memory     = 256
       env        = local.db_env
-      statements = [{ Action = ["rds-db:connect"], Resource = [local.db_connect_arn] }]
+      statements = []
     }
   }
 }
@@ -115,7 +112,7 @@ resource "aws_iam_role_policy" "fn" {
   role     = aws_iam_role.fn[each.key].id
   policy = jsonencode({
     Version   = "2012-10-17"
-    Statement = [for s in each.value.statements : merge({ Effect = "Allow" }, s)]
+    Statement = [for s in concat(each.value.vpc ? local.db_access_statements : [], each.value.statements) : merge({ Effect = "Allow" }, s)]
   })
 }
 
@@ -202,5 +199,5 @@ resource "aws_lambda_invocation" "migrate" {
     schema = filesha256("${path.module}/../backend/src/schema.sql")
     code   = data.archive_file.backend.output_base64sha256
   }
-  depends_on = [aws_db_proxy_target.main, aws_vpc_endpoint.sqs]
+  depends_on = [aws_db_proxy_target.main, aws_vpc_endpoint.sqs, aws_vpc_endpoint.secretsmanager, aws_nat_gateway.main, aws_security_group.db]
 }

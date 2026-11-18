@@ -147,6 +147,17 @@ resource "aws_security_group" "db" {
     protocol        = "tcp"
     security_groups = [aws_security_group.proxy.id]
   }
+  # Without RDS Proxy (AWS Free plan) the Lambdas connect to the database directly.
+  dynamic "ingress" {
+    for_each = var.enable_rds_proxy ? [] : [1]
+    content {
+      description     = "PostgreSQL from Lambda (no RDS Proxy)"
+      from_port       = 5432
+      to_port         = 5432
+      protocol        = "tcp"
+      security_groups = [aws_security_group.lambda.id]
+    }
+  }
 }
 
 resource "aws_security_group" "endpoints" {
@@ -171,6 +182,18 @@ resource "aws_vpc_endpoint" "s3" {
   vpc_endpoint_type = "Gateway"
   route_table_ids   = aws_route_table.private[*].id
   tags              = { Name = "${local.name}-s3-gw" }
+}
+
+# Only needed when the Lambdas read the DB secret themselves (no RDS Proxy) AND there is no NAT.
+resource "aws_vpc_endpoint" "secretsmanager" {
+  count               = !var.enable_rds_proxy && var.nat_gateway_count == 0 ? 1 : 0
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.${var.region}.secretsmanager"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.app[*].id
+  security_group_ids  = [aws_security_group.endpoints.id]
+  private_dns_enabled = true
+  tags                = { Name = "${local.name}-secretsmanager-vpce" }
 }
 
 resource "aws_vpc_endpoint" "sqs" {

@@ -95,6 +95,7 @@ resource "aws_iam_role_policy" "rds_proxy" {
 }
 
 resource "aws_db_proxy" "main" {
+  count                  = var.enable_rds_proxy ? 1 : 0
   name                   = "${local.name}-proxy"
   engine_family          = "POSTGRESQL"
   role_arn               = aws_iam_role.rds_proxy.arn
@@ -111,7 +112,8 @@ resource "aws_db_proxy" "main" {
 }
 
 resource "aws_db_proxy_default_target_group" "main" {
-  db_proxy_name = aws_db_proxy.main.name
+  count         = var.enable_rds_proxy ? 1 : 0
+  db_proxy_name = aws_db_proxy.main[0].name
   connection_pool_config {
     max_connections_percent      = 90
     max_idle_connections_percent = 50
@@ -120,12 +122,25 @@ resource "aws_db_proxy_default_target_group" "main" {
 }
 
 resource "aws_db_proxy_target" "main" {
-  db_proxy_name          = aws_db_proxy.main.name
-  target_group_name      = aws_db_proxy_default_target_group.main.name
+  count                  = var.enable_rds_proxy ? 1 : 0
+  db_proxy_name          = aws_db_proxy.main[0].name
+  target_group_name      = aws_db_proxy_default_target_group.main[0].name
   db_instance_identifier = aws_db_instance.main.identifier
 }
 
+# ---------------------------------------------------------------------------
+# How the Lambdas reach PostgreSQL
+#   enable_rds_proxy = true : RDS Proxy endpoint + IAM auth (production design)
+#   enable_rds_proxy = false: RDS endpoint directly + password from the RDS-managed
+#                             secret (AWS Free plan accounts cannot create RDS Proxy)
+# ---------------------------------------------------------------------------
 locals {
-  proxy_resource_id = element(split(":", aws_db_proxy.main.arn), 6)
-  db_connect_arn    = "arn:aws:rds-db:${var.region}:${local.account_id}:dbuser:${local.proxy_resource_id}/${aws_db_instance.main.username}"
+  db_secret_arn = aws_db_instance.main.master_user_secret[0].secret_arn
+  db_host       = var.enable_rds_proxy ? aws_db_proxy.main[0].endpoint : aws_db_instance.main.address
+  db_access_statements = var.enable_rds_proxy ? [
+    { Action = ["rds-db:connect"], Resource = ["arn:aws:rds-db:${var.region}:${local.account_id}:dbuser:${element(split(":", aws_db_proxy.main[0].arn), 6)}/${aws_db_instance.main.username}"] },
+    ] : [
+    { Action = ["secretsmanager:GetSecretValue"], Resource = [local.db_secret_arn] },
+    { Action = ["kms:Decrypt"], Resource = [aws_kms_key.main.arn] },
+  ]
 }

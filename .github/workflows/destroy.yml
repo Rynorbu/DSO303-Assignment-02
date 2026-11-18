@@ -32,6 +32,7 @@ jobs:
           RAW_SES_TEST_RECIPIENTS: ${{ vars.SES_TEST_RECIPIENTS }}
           RAW_DB_BACKUP_RETENTION_DAYS: ${{ vars.DB_BACKUP_RETENTION_DAYS }}
           RAW_DB_MULTI_AZ: ${{ vars.DB_MULTI_AZ }}
+          RAW_DB_USE_RDS_PROXY: ${{ vars.DB_USE_RDS_PROXY }}
         run: bash scripts/ci-settings.sh
       - uses: actions/setup-node@v4
         with:

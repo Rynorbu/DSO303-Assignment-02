@@ -33,8 +33,9 @@ output "db_instance_id" {
   value       = aws_db_instance.main.identifier
 }
 
-output "db_proxy_endpoint" {
-  value = aws_db_proxy.main.endpoint
+output "db_endpoint_used_by_lambda" {
+  description = "RDS Proxy endpoint, or the RDS endpoint when enable_rds_proxy = false"
+  value       = local.db_host
 }
 
 output "availability_zones" {

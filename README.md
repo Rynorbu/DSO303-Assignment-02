@@ -38,6 +38,16 @@ Submit / release ─► SQS marking ─► Lambda (auto-mark, email fan-out)    
 | 5-year records | S3 lifecycle (IA → Glacier IR → Deep Archive → delete after 5 years). AWS Backup monthly copies kept 1,825 days |
 | Encryption in transit and at rest | TLS everywhere (CloudFront, API, `rds.force_ssl`, S3 TLS-only policy). KMS CMK for RDS, S3, secrets and backups. SSE-SQS |
 
+## AWS Free plan deployment
+
+The demo account runs on the **AWS Free account plan**, which blocks two features of the production design. Three optional GitHub variables switch the deployment into a Free-plan-compatible mode **without changing the architecture's guarantees**:
+
+| GitHub variable | Production design | Free plan demo | Effect on requirements |
+|---|---|---|---|
+| `DB_BACKUP_RETENTION_DAYS` | 7 | `1` | None. Point-in-time restore still gives an RPO of about 5 minutes, and 5-year retention comes from AWS Backup and S3 lifecycle rules |
+| `DB_USE_RDS_PROXY` | true | `false` | Lambdas connect **directly** to RDS over verified TLS, using the RDS-managed secret. Each Lambda instance holds at most 1 connection. At exam-week scale, RDS Proxy is re-enabled on a paid plan for connection pooling and faster failover |
+| `DB_MULTI_AZ` | true | *(unset → true)* | **Multi-AZ stays on.** Accepted by the Free plan, so the database survives the loss of an AZ |
+
 ## Run locally (frontend + backend + database, no AWS needed)
 
 Requires Docker Desktop and Node.js 20 or later. This runs the same Lambda handlers against PostgreSQL 16 in Docker. Queues, file storage and email are emulated locally.
