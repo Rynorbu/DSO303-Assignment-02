@@ -44,7 +44,7 @@ resource "aws_db_instance" "main" {
   manage_master_user_password   = true # password generated and stored in Secrets Manager
   master_user_secret_kms_key_id = aws_kms_key.main.arn
 
-  multi_az               = true
+  multi_az               = var.db_multi_az
   db_subnet_group_name   = aws_db_subnet_group.main.name
   vpc_security_group_ids = [aws_security_group.db.id]
   publicly_accessible    = false

@@ -59,6 +59,8 @@ jobs:
           RAW_SES_SENDER_EMAIL: ${{ vars.SES_SENDER_EMAIL }}
           RAW_ALARM_EMAIL: ${{ vars.ALARM_EMAIL }}
           RAW_SES_TEST_RECIPIENTS: ${{ vars.SES_TEST_RECIPIENTS }}
+          RAW_DB_BACKUP_RETENTION_DAYS: ${{ vars.DB_BACKUP_RETENTION_DAYS }}
+          RAW_DB_MULTI_AZ: ${{ vars.DB_MULTI_AZ }}
         run: bash scripts/ci-settings.sh
 
       - uses: actions/setup-node@v4

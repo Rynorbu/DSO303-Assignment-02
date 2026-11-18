@@ -38,9 +38,19 @@ variable "db_instance_class" {
 }
 
 variable "db_backup_retention_days" {
-  description = "Automated backup + point-in-time-recovery window (gives ~5 minute RPO)"
+  description = "Automated backup + point-in-time-recovery window. Any value >= 1 gives the ~5 minute RPO (PITR); the length only sets how far back you can restore. AWS Free plan accounts must use 1."
   type        = number
   default     = 7
+  validation {
+    condition     = var.db_backup_retention_days >= 1 && var.db_backup_retention_days <= 35
+    error_message = "db_backup_retention_days must be between 1 and 35 (0 would disable backups and break the RPO)."
+  }
+}
+
+variable "db_multi_az" {
+  description = "Synchronous standby in a second AZ. Keep true (required to survive the loss of an AZ); set false only if the AWS account plan refuses it."
+  type        = bool
+  default     = true
 }
 
 variable "db_deletion_protection" {
