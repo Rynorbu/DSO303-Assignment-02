@@ -1,0 +1,24 @@
+# Local PostgreSQL 16 for development (same engine/version as RDS on AWS).
+#   docker compose up -d      start
+#   docker compose down       stop (data is kept)
+#   docker compose down -v    stop and delete all local data
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: exam-platform-db
+    environment:
+      POSTGRES_USER: exam
+      POSTGRES_PASSWORD: exam
+      POSTGRES_DB: exams
+    ports:
+      - "55432:5432" # 55432 on your PC, so it doesn't clash with any other PostgreSQL
+    volumes:
+      - exam-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U exam -d exams"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  exam-db-data:

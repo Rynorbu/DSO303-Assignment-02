@@ -7,7 +7,7 @@ data "archive_file" "backend" {
   type        = "zip"
   source_dir  = "${path.module}/../backend"
   output_path = "${path.module}/.build/backend.zip"
-  excludes    = ["test", "test/marking.test.js", "package-lock.json"]
+  excludes    = ["test", "test/marking.test.js", "local", "local/server.js", "package-lock.json"]
 }
 
 locals {

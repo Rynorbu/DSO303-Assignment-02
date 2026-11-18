@@ -9,3 +9,4 @@ tfplan
 frontend/config.js
 .env
 .DS_Store
+local-data/

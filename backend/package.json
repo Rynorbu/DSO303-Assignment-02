@@ -5,7 +5,8 @@
   "description": "Lambda functions for the online exam and assignment platform",
   "main": "src/handlers/api.js",
   "scripts": {
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "local": "node local/server.js"
   },
   "engines": {
     "node": ">=20"

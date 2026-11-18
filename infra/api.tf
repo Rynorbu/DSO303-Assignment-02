@@ -32,6 +32,8 @@ locals {
     "GET /api/health"                       = { fn = "api", auth = false }
     "GET /api/exams"                        = { fn = "api", auth = true }
     "POST /api/exams"                       = { fn = "api", auth = true }
+    "GET /api/exams/{id}"                   = { fn = "api", auth = true }
+    "DELETE /api/exams/{id}"                = { fn = "api", auth = true }
     "PUT /api/exams/{id}/schedule"          = { fn = "api", auth = true }
     "POST /api/exams/{id}/start"            = { fn = "api", auth = true }
     "GET /api/exams/{id}/attempts"          = { fn = "api", auth = true }

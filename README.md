@@ -38,6 +38,20 @@ Submit / release ─► SQS marking ─► Lambda (auto-mark, email fan-out)    
 | 5-year records | S3 lifecycle (IA → Glacier IR → Deep Archive → delete after 5 years). AWS Backup monthly copies kept 1,825 days |
 | Encryption in transit and at rest | TLS everywhere (CloudFront, API, `rds.force_ssl`, S3 TLS-only policy). KMS CMK for RDS, S3, secrets and backups. SSE-SQS |
 
+## Run locally (frontend + backend + database, no AWS needed)
+
+Requires Docker Desktop and Node.js 20 or later. This runs the same Lambda handlers against PostgreSQL 16 in Docker. Queues, file storage and email are emulated locally.
+
+```powershell
+docker compose up -d          # PostgreSQL 16 on localhost:55432
+cd backend
+npm install
+npm test                      # unit tests
+npm run local                 # http://localhost:3000
+```
+
+Sign in with any email and password, and choose the role (student, tutor or admin) on the login page. Uploaded files go to `local-data/uploads` and emails to `local-data/outbox`. Stop with `Ctrl+C` and `docker compose down`. See [Phase 1B of the guide](docs/step-by-step-guide.md#phase-1b--run-the-frontend-backend-and-database-locally-free--30-min) for details.
+
 ## Prerequisites
 
 - An AWS account and the AWS CLI, signed in with an administrator profile (`aws sts get-caller-identity` works)

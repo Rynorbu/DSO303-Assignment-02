@@ -1,12 +1,9 @@
 'use strict';
 // Walkthrough 2, step 3: S3 "ObjectCreated" event -> SQS uploads queue -> this Lambda (in the VPC).
 // Records the submission in PostgreSQL and queues an email to the tutor.
-const { SQSClient, SendMessageCommand } = require('@aws-sdk/client-sqs');
-const { S3Client, HeadObjectCommand } = require('@aws-sdk/client-s3');
 const db = require('../lib/db');
-
-const sqs = new SQSClient({});
-const s3 = new S3Client({});
+const queue = require('../lib/queue');
+const storage = require('../lib/storage');
 
 // Key format: assignments/{assignmentId}/{studentSub}/{timestamp}-{rand}-{fileName}
 function parseKey(key) {
@@ -21,8 +18,8 @@ async function processS3Record(s3rec) {
   const parsed = parseKey(key);
   if (!parsed) { console.warn('Ignoring unexpected key', key); return; }
   // Student email was stored as object metadata by the presigned POST (via the free S3 gateway endpoint).
-  const head = await s3.send(new HeadObjectCommand({ Bucket: s3rec.s3.bucket.name, Key: key }));
-  const studentEmail = head.Metadata?.['student-email'] || null;
+  const metadata = await storage.headMetadata(s3rec.s3.bucket.name, key);
+  const studentEmail = metadata['student-email'] || null;
 
   const { rows } = await db.query(
     `WITH ins AS (
@@ -35,15 +32,12 @@ async function processS3Record(s3rec) {
   const a = rows[0];
   if (!a || !a.submission_id || !a.tutor_email) return; // duplicate event or no tutor email
 
-  await sqs.send(new SendMessageCommand({
-    QueueUrl: process.env.NOTIFY_QUEUE_URL,
-    MessageBody: JSON.stringify({
-      to: a.tutor_email,
-      subject: `New submission: ${a.title}`,
-      text: `${studentEmail || 'A student'} submitted "${parsed.fileName}" (${(size / 1048576).toFixed(1)} MB) for "${a.title}". ` +
-            `Sign in to the exam platform to download it.`,
-    }),
-  }));
+  await queue.send(process.env.NOTIFY_QUEUE_URL, {
+    to: a.tutor_email,
+    subject: `New submission: ${a.title}`,
+    text: `${studentEmail || 'A student'} submitted "${parsed.fileName}" (${(size / 1048576).toFixed(1)} MB) for "${a.title}". ` +
+          `Sign in to the exam platform to download it.`,
+  });
   console.log(JSON.stringify({ event: 'submission_recorded', key, size }));
 }
 

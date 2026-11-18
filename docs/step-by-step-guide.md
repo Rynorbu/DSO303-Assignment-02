@@ -7,9 +7,37 @@ Save every screenshot as **PNG** in `C:\Users\HP\OneDrive\Desktop\Assignment-2-A
 
 > 📸 = take a screenshot here.
 > ⏱ = how long the step usually takes.
-> 💰 = this step costs money. The whole graded deployment costs about **$4–5 per day**, so do it in **one or two days** and then tear it down (Phase 12).
+> 💰 = this step costs money. The whole graded deployment costs about **$4–5 per day**, so do it in **one or two days** and then tear it down (Phase 18).
 
 **If you get stuck, paste the full error message to Claude.** Most problems are a missing setting, and you can see the exact error on screen.
+
+## The big picture (the order you work in)
+
+```
+ PART A – LOCAL (free)            PART B – AWS (costs money)                 PART C – FINISH
+ ─────────────────────            ──────────────────────────                 ───────────────
+ Phase 0  prepare                 Phase 2   connect PC to AWS                Phase 14  record video
+ Phase 1  check tools             Phase 3   push code to GitHub              Phase 15  diagram PNG
+ Phase 1B run frontend +    ──►   Phase 4   bootstrap (state + OIDC)   ──►   Phase 16  Cloud Architecture Lab
+          backend + database      Phase 5   GitHub variables                 Phase 17  hand in
+          on your laptop          Phase 6   pipeline deploys everything      Phase 18  TEAR DOWN
+                                  Phase 7-8 verify emails, create users
+                                  Phase 9   console screenshots (28)
+                                  Phase 10  both walkthroughs on AWS
+                                  Phase 11  AZ failure test
+                                  Phase 12  load test
+                                  Phase 13  push to main → auto redeploy
+```
+
+| Rubric item (2 marks each) | Proved by phases |
+|---|---|
+| AWS architecture design | `architecture/README.md` (already written) + Phase 15 |
+| AWS service documentation | `docs/services.md` (already written) |
+| Cloud Architecture Lab | Phase 16 |
+| AWS deployment | Phases 6, 9, 10, 11 + video (Phase 14) |
+| IaC and CI/CD | Phases 4, 5, 6, 13, 18 |
+
+Phase 1B (local) isn't in the rubric, but it lets you test everything for free first and gives you extra evidence.
 
 ---
 
@@ -49,6 +77,102 @@ git --version
 You already have all four installed: Node 24, Terraform 1.13, AWS CLI and Git.
 
 📸 `evidence/01-tools-versions.png`: the terminal showing all four versions.
+
+---
+
+## Phase 1B – Run the frontend, backend and database locally (free, ⏱ 30 min)
+
+This runs **the same Lambda code** on your laptop. The AWS services are replaced like this:
+
+| On AWS | On your laptop |
+|---|---|
+| RDS PostgreSQL 16 | PostgreSQL 16 in **Docker** |
+| API Gateway + Lambda | local Node server (`backend/local/server.js`) calling the same handlers |
+| SQS + worker Lambdas | in-process queue calling the same worker handlers |
+| S3 uploads | folder `local-data/uploads` |
+| SES email | text files in `local-data/outbox` |
+| Cognito | local sign-in where you choose the role |
+| CloudFront + S3 website | the same local server, at `http://localhost:3000` |
+
+### Step 1B.1 – Start Docker Desktop
+Open **Docker Desktop** from the Start menu and wait until it says **Engine running**.
+
+### Step 1B.2 – Start the database
+In **PowerShell**, in the project folder:
+```powershell
+cd C:\Users\HP\OneDrive\Desktop\Assignment-2-AWS
+docker compose up -d
+docker ps
+```
+`docker ps` should show `exam-platform-db` with status **Up (healthy)**. Wait about 10 seconds if it still says *starting*.
+
+📸 `evidence/L01-docker-db-running.png`: the `docker ps` output.
+
+### Step 1B.3 – Install the backend and run the unit tests
+```powershell
+cd backend
+npm install
+npm test
+```
+You should see `pass 6` and `fail 0`.
+
+📸 `evidence/L02-unit-tests.png`
+
+### Step 1B.4 – Start the local server
+```powershell
+npm run local
+```
+You should see:
+```
+Database ready. Tables: assignments, attempts, exams, submissions
+Exam platform running locally: http://localhost:3000
+```
+**Keep this window open.** It is your backend, and it prints every API request. Closing it stops the app.
+
+📸 `evidence/L03-local-server-running.png`
+
+### Step 1B.5 – Test walkthrough 1 locally
+1. Open **http://localhost:3000** in Chrome. Use a normal window for the tutor.
+2. Sign in with email `tutor@test.local`, any password, and Role **Tutor**.
+3. Click **Exams → Create exam**, then **Load sample questions**. Type a title and click **Publish exam**.
+   📸 `evidence/L04-local-tutor-exam-created.png`
+4. Open an **Incognito window** (`Ctrl + Shift + N`), go to http://localhost:3000, and sign in as `student@test.local` with Role **Student**.
+5. Click **Start exam → Start exam**. Answer the questions using the question map on the left or **Next**, and wait 30 seconds for **"Saved hh:mm:ss"** in the top bar.
+   📸 `evidence/L05-local-autosave.png`
+6. Press **F5**. The exam reopens with all your answers (the progress bar shows "4 of 4 answered").
+7. Click **Submit → Submit exam**. In the tutor window, open the exam. The **Auto** column shows the MCQ score added by the marking worker.
+   📸 `evidence/L06-local-auto-marked.png`
+8. Click **Mark**, give the short answer a mark (for example **½**), add feedback, and click **Save marks**. Back on the exam, click **Release results**. Open the folder `local-data\outbox`, where a `.txt` email to the student has appeared. Open it.
+   📸 `evidence/L07-local-result-email-file.png`
+
+### Step 1B.6 – Test walkthrough 2 locally
+1. Make a 40 MB test file:
+   ```powershell
+   fsutil file createnew "$HOME\Desktop\assignment-40mb.pdf" 41943040
+   ```
+2. **Tutor window:** create an assignment.
+3. **Student window:** refresh, then upload `assignment-40mb.pdf` on that assignment.
+   📸 `evidence/L08-local-upload.png`
+4. Look at the server window. It prints `[local s3] stored …` and `[local email] to=tutor@test.local …`.
+   📸 `evidence/L09-local-server-log.png`
+5. The file is now in `local-data\uploads\assignments\…`, and the tutor email is in `local-data\outbox`.
+   📸 `evidence/L10-local-tutor-email-file.png`
+6. **Tutor window:** open **Assignments**, click the assignment card, then **Download**.
+
+### Step 1B.7 – Look inside the database (optional, good evidence)
+In a **second** PowerShell window:
+```powershell
+docker exec -it exam-platform-db psql -U exam -d exams -c "SELECT student_email, status, mcq_score, total_score, last_saved_at FROM attempts;"
+docker exec -it exam-platform-db psql -U exam -d exams -c "SELECT student_email, s3_key, size_bytes FROM submissions;"
+```
+📸 `evidence/L11-local-database-rows.png`: the autosaved attempt and the upload row in PostgreSQL.
+
+### Step 1B.8 – Stop
+- Press **Ctrl + C** in the server window.
+- Run `docker compose down` to stop the database. Your data is kept for next time.
+- Run `docker compose down -v` instead if you want to delete all local data and start fresh.
+
+> If `npm run local` says **"Could not start. Is the database running?"**, Docker Desktop isn't running or the container isn't healthy yet. Run `docker ps`, wait, and try again.
 
 ---
 
@@ -222,6 +346,8 @@ The password must have 10 or more characters, with uppercase, lowercase and a nu
 
 ## Phase 9 – Screenshot every part of the architecture in the AWS Console (⏱ 40 min)
 
+> 👉 **Detailed click-by-click instructions for every screenshot are in [`console-screenshots-guide.md`](console-screenshots-guide.md).** The table below is the short version.
+
 This proves the **full build**. Make sure the region in the top-right corner is **N. Virginia (us-east-1)**. Every resource name starts with `exam-platform-prod`.
 
 | # | Search the console for → open | What must be visible in the screenshot | File name |
@@ -265,18 +391,18 @@ Open the **app URL** from Phase 6. Use a normal browser window for the tutor, an
 
 1. **Tutor window:** sign in as `name+tutor@gmail.com`.
    📸 `evidence/10-01-tutor-dashboard.png`
-2. Under **Create exam**, enter the title `Cloud Computing Mid-term` and a duration of `30`. Leave the dates empty and keep the sample questions. Click **Create exam**.
+2. Click **Exams → Create exam**. Enter the title `Cloud Computing Mid-term` and a duration of `30`, and leave the dates empty. Click **Load sample questions**, then **Publish exam**.
    📸 `evidence/10-02-exam-created.png`: the exam listed under "My exams".
-3. **Student window (Incognito):** sign in as `name+student@gmail.com`. The exam is listed. Click **Start**.
+3. **Student window (Incognito):** sign in as `name+student@gmail.com`. The exam is on the dashboard. Click **Start exam**, read the instructions box, and click **Start exam** again.
    📸 `evidence/10-03-student-exam-list.png`
 4. Answer question 1, choose an option for question 2, and type a sentence for question 3. **Wait about 30 seconds** until the top-right shows **"Saved hh:mm:ss"** in green.
    📸 `evidence/10-04-autosave-saved.png`: the questions, the timer and **"Saved …"** must all be visible.
-5. Press **F5** to refresh, then click **Resume**. Your answers come back from the database. This shows autosave works.
+5. Press **F5** to refresh. The exam reopens with your answers loaded from the database. This shows autosave works.
    📸 `evidence/10-05-answers-restored.png`
 6. Optional, shows the request path: press **F12**, open the **Network** tab, and wait for the next autosave. Click the `answers` request: it's a `PUT /api/attempts/.../answers`, Status **200**.
    📸 `evidence/10-06-autosave-network.png`
-7. Click **Submit exam** twice (the second click confirms).
-8. **Tutor window:** refresh the page and click **Attempts** on the exam. The **MCQ** column has a score that the marking worker added automatically through SQS.
+7. Click **Submit** (top right). The summary shows answered, unanswered and flagged questions. Click **Submit exam**.
+8. **Tutor window:** open **Exams** and click the exam. In the **Students** table, the **Auto** column has a score that the marking worker added automatically through SQS.
    📸 `evidence/10-07-auto-marked.png`
 9. In **AWS Console → CloudWatch → Log groups → `/aws/lambda/exam-platform-prod-marking`**, open the newest log stream. Look for the line `"event":"marked"`.
    📸 `evidence/10-08-marking-log.png`
@@ -288,9 +414,9 @@ Open the **app URL** from Phase 6. Use a normal browser window for the tutor, an
    fsutil file createnew "$HOME\Desktop\assignment-40mb.pdf" 41943040
    ```
    This creates a file exactly 40 MB in size. Any real PDF also works.
-2. **Tutor window:** under **Assignments**, enter the title `Assignment 1 – AWS Report` and click **Create assignment**.
+2. **Tutor window:** go to **Assignments → New assignment**, enter the title `Assignment 1 – AWS Report`, and click **Create assignment**.
    📸 `evidence/11-01-assignment-created.png`
-3. **Student window:** refresh the page. Under **Assignments**, click **Choose file** and select `assignment-40mb.pdf`. Take the screenshot **while the progress bar is moving**.
+3. **Student window:** open **Assignments**. **Drag** `assignment-40mb.pdf` onto the upload box, or click the box and choose it. Take the screenshot **while the progress bar is moving**: it shows %, speed and time left.
    📸 `evidence/11-02-upload-progress.png`
    Then wait for the message "Uploaded … Your tutor will be notified."
    📸 `evidence/11-03-upload-done.png`
@@ -302,13 +428,13 @@ Open the **app URL** from Phase 6. Use a normal browser window for the tutor, an
    📸 `evidence/11-06-tutor-email.png`
 7. **CloudWatch → Log groups → `/aws/lambda/exam-platform-prod-upload`**: look for the line `"event":"submission_recorded"`.
    📸 `evidence/11-07-upload-lambda-log.png`
-8. **Tutor window:** click **View** on the assignment. The submission is listed with a **Download** link. Click it and the file downloads.
+8. **Tutor window:** in **Assignments**, click the assignment card. The submission is listed (On time or Late) with a **Download** button. Click it and the file downloads.
    📸 `evidence/11-08-tutor-download.png`
 
 ### Results release email (the async email step)
 
-1. **Tutor window:** open **Attempts**, type a manual mark (for example `5`) in the box for the short answer, and click outside the box so it saves.
-2. Click **Release results**.
+1. **Tutor window:** open the exam and click **Mark** next to the student. Give the short answer a mark (type `5` or click **½**/**Full**), add feedback, and click **Save marks**.
+2. Back on the exam page, click **Release results → Release and email students**.
    📸 `evidence/12-01-results-released.png`
 3. The student email "Results released: Cloud Computing Mid-term" arrives in your inbox.
    📸 `evidence/12-02-student-result-email.png`
@@ -346,7 +472,7 @@ You force the database to fail over from one AZ to the other while the app keeps
 
 ## Phase 12 – Peak load test (optional but strong evidence, ⏱ 10 min)
 
-1. In the student window, find the exam ID. **F12 → Network**, click **Start/Resume**, and look at the request URL `/api/exams/<THIS-IS-THE-ID>/start`.
+1. Find the exam ID: as the tutor, open the exam. The ID is the last part of the address bar (`…/#/exams/<THIS-IS-THE-ID>`).
 2. Get the client ID from `terraform -chdir=infra output -raw user_pool_client_id`.
 3. In Git Bash, run:
    ```bash

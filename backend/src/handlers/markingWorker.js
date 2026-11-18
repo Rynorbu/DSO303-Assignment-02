@@ -2,11 +2,9 @@
 // Async worker in the VPC. Triggered by:
 //  - the SQS marking queue: {type:'mark', attemptId} or {type:'release', examId}
 //  - an EventBridge schedule every minute: auto-submits attempts whose time ran out
-const { SQSClient, SendMessageBatchCommand, SendMessageCommand } = require('@aws-sdk/client-sqs');
 const db = require('../lib/db');
+const queue = require('../lib/queue');
 const { markMcq } = require('../lib/marking');
-
-const sqs = new SQSClient({});
 
 async function markAttempt(attemptId) {
   const { rows } = await db.query(
@@ -31,20 +29,13 @@ async function fanOutResultEmails(examId) {
     `SELECT a.student_email, a.total_score, a.max_score, a.status, e.title
        FROM attempts a JOIN exams e ON e.id = a.exam_id
       WHERE a.exam_id = $1 AND e.results_released AND a.student_email IS NOT NULL`, [examId]);
-  for (let i = 0; i < rows.length; i += 10) {
-    const entries = rows.slice(i, i + 10).map((r, j) => ({
-      Id: String(i + j),
-      MessageBody: JSON.stringify({
-        to: r.student_email,
-        subject: `Results released: ${r.title}`,
-        text: r.status === 'marked'
-          ? `Your result for "${r.title}" is ${r.total_score} / ${r.max_score}. Sign in to view details.`
-          : `Results for "${r.title}" have been released. Sign in to view your result.`,
-      }),
-    }));
-    const res = await sqs.send(new SendMessageBatchCommand({ QueueUrl: process.env.NOTIFY_QUEUE_URL, Entries: entries }));
-    if (res.Failed?.length) throw new Error(`Failed to queue ${res.Failed.length} emails`);
-  }
+  await queue.sendBatch(process.env.NOTIFY_QUEUE_URL, rows.map((r) => ({
+    to: r.student_email,
+    subject: `Results released: ${r.title}`,
+    text: r.status === 'marked'
+      ? `Your result for "${r.title}" is ${r.total_score} / ${r.max_score}. Sign in to view details.`
+      : `Results for "${r.title}" have been released. Sign in to view your result.`,
+  })));
   console.log(JSON.stringify({ event: 'results_released', examId, emails: rows.length }));
 }
 
@@ -54,10 +45,7 @@ async function autoSubmitExpired() {
       WHERE status = 'in_progress' AND deadline + interval '30 seconds' < now()
      RETURNING id`);
   for (const r of rows) {
-    await sqs.send(new SendMessageCommand({
-      QueueUrl: process.env.MARKING_QUEUE_URL,
-      MessageBody: JSON.stringify({ type: 'mark', attemptId: r.id }),
-    }));
+    await queue.send(process.env.MARKING_QUEUE_URL, { type: 'mark', attemptId: r.id });
   }
   if (rows.length) console.log(JSON.stringify({ event: 'auto_submitted', count: rows.length }));
 }
