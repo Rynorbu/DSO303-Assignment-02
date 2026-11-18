@@ -358,4 +358,4 @@ You should now have these files in `evidence/`:
 | Nothing has `exam-platform-prod` in its name | The pipeline (Phase 6) hasn't finished. Check that GitHub **Actions** shows green. |
 | RDS shows **Multi-AZ: No** | Wait. The status may still be "Modifying". Refresh after a few minutes. |
 | SNS shows **Pending confirmation** | Click the confirmation link in your email (check spam). |
-| A column you need is hidden | Click the **⚙ gear icon** at the top-right of the table and switch the column on. |
+| A column you need is hidden | Click the **⚙ gear icon** at the top-right of the table and switch the column on |
