@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>University Exam Platform</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1>University Exam Platform</h1>
+    <div id="whoami" hidden>
+      <span id="user-email"></span> · <span id="user-role" class="badge"></span>
+      <button id="logout" class="link">Sign out</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="toast" role="status" hidden></div>
+
+    <!-- Sign in -->
+    <section id="login-view" class="card narrow" hidden>
+      <h2>Sign in</h2>
+      <form id="login-form">
+        <label>Email <input type="email" name="email" required autocomplete="username"></label>
+        <label>Password <input type="password" name="password" required autocomplete="current-password"></label>
+        <button type="submit">Sign in</button>
+      </form>
+      <form id="newpw-form" hidden>
+        <p>First sign-in: choose a new password (10+ chars, upper, lower, number).</p>
+        <label>New password <input type="password" name="password" required minlength="10" autocomplete="new-password"></label>
+        <button type="submit">Set password</button>
+      </form>
+    </section>
+
+    <!-- Student -->
+    <section id="student-view" hidden>
+      <div class="card">
+        <h2>My exams</h2>
+        <table id="student-exams"><thead><tr><th>Exam</th><th>Duration</th><th>Status</th><th></th></tr></thead><tbody></tbody></table>
+      </div>
+      <div class="card">
+        <h2>Assignments</h2>
+        <table id="student-assignments"><thead><tr><th>Assignment</th><th>Due</th><th>Last submitted</th><th>Upload (PDF/ZIP, max 50 MB)</th></tr></thead><tbody></tbody></table>
+        <progress id="upload-progress" max="100" value="0" hidden></progress>
+      </div>
+      <div class="card">
+        <h2>Released results</h2>
+        <table id="student-results"><thead><tr><th>Exam</th><th>Score</th><th>Status</th></tr></thead><tbody></tbody></table>
+      </div>
+    </section>
+
+    <!-- Exam taking -->
+    <section id="exam-view" class="card" hidden>
+      <div class="exam-bar">
+        <h2 id="exam-title"></h2>
+        <div>
+          <span id="exam-timer" class="timer"></span>
+          <span id="save-status" class="muted"></span>
+        </div>
+      </div>
+      <form id="exam-form"></form>
+      <div class="actions">
+        <button id="save-now" class="secondary">Save now</button>
+        <button id="submit-exam">Submit exam</button>
+      </div>
+    </section>
+
+    <!-- Tutor -->
+    <section id="tutor-view" hidden>
+      <div class="card">
+        <h2>My exams</h2>
+        <table id="tutor-exams"><thead><tr><th>Exam</th><th>Window</th><th>Attempts</th><th>Released</th><th></th></tr></thead><tbody></tbody></table>
+        <div id="attempts-panel" hidden>
+          <h3 id="attempts-title"></h3>
+          <table id="attempts-table"><thead><tr><th>Student</th><th>Status</th><th>MCQ</th><th>Short answers</th><th>Manual mark</th><th>Total</th></tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Create exam</h2>
+        <form id="create-exam-form">
+          <label>Title <input name="title" required></label>
+          <div class="row">
+            <label>Duration (minutes) <input name="durationMinutes" type="number" min="1" max="480" value="60" required></label>
+            <label>Opens <input name="opensAt" type="datetime-local"></label>
+            <label>Closes <input name="closesAt" type="datetime-local"></label>
+          </div>
+          <label>Questions (JSON) <textarea name="questions" rows="10" required></textarea></label>
+          <button type="submit">Create exam</button>
+        </form>
+      </div>
+      <div class="card">
+        <h2>Assignments</h2>
+        <form id="create-assignment-form" class="row">
+          <label>Title <input name="title" required></label>
+          <label>Due <input name="dueAt" type="datetime-local"></label>
+          <button type="submit">Create assignment</button>
+        </form>
+        <table id="tutor-assignments"><thead><tr><th>Assignment</th><th>Due</th><th>Submissions</th><th></th></tr></thead><tbody></tbody></table>
+        <div id="submissions-panel" hidden>
+          <h3 id="submissions-title"></h3>
+          <table id="submissions-table"><thead><tr><th>Student</th><th>Size</th><th>Submitted</th><th></th></tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Admin -->
+    <section id="admin-view" hidden>
+      <div class="card">
+        <h2>Create user</h2>
+        <form id="create-user-form" class="row">
+          <label>Email <input name="email" type="email" required></label>
+          <label>Role
+            <select name="group"><option>students</option><option>tutors</option><option>admins</option></select>
+          </label>
+          <button type="submit">Create &amp; email invite</button>
+        </form>
+      </div>
+      <div class="card">
+        <h2>Users</h2>
+        <div id="admin-users"></div>
+      </div>
+      <div class="card">
+        <h2>Exam schedules</h2>
+        <table id="admin-exams"><thead><tr><th>Exam</th><th>Tutor</th><th>Opens</th><th>Closes</th><th></th></tr></thead><tbody></tbody></table>
+      </div>
+    </section>
+  </main>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

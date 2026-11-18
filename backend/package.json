@@ -1,0 +1,23 @@
+{
+  "name": "exam-platform-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Lambda functions for the online exam and assignment platform",
+  "main": "src/handlers/api.js",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@aws-sdk/client-cognito-identity-provider": "^3.600.0",
+    "@aws-sdk/client-s3": "^3.600.0",
+    "@aws-sdk/client-sesv2": "^3.600.0",
+    "@aws-sdk/client-sqs": "^3.600.0",
+    "@aws-sdk/rds-signer": "^3.600.0",
+    "@aws-sdk/s3-presigned-post": "^3.600.0",
+    "@aws-sdk/s3-request-presigner": "^3.600.0",
+    "pg": "^8.12.0"
+  }
+}
