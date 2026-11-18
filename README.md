@@ -5,9 +5,9 @@ A serverless, two-Availability-Zone platform for a university with 8,000 student
 | Deliverable | Location |
 |---|---|
 | **Step-by-step deployment and evidence guide** | [`docs/step-by-step-guide.md`](docs/step-by-step-guide.md) |
-| Architecture diagram, two walkthroughs, peak/AZ explanation | [`architecture/README.md`](architecture/README.md) |
+| Architecture diagram (Mermaid + [PNG](architecture/architecture-diagram.png)), two walkthroughs, peak/AZ explanation, [Cloud Architecture Lab files](architecture/lab) | [`architecture/README.md`](architecture/README.md) |
 | Service table (role, why over an alternative, connections, configuration) | [`docs/services.md`](docs/services.md) |
-| Cloud Architecture Lab and deployment evidence | [`evidence/`](evidence/README.md) |
+| **Implementation report** (Cloud Architecture Lab, AWS deployment, IaC + CI/CD evidence) | [`evidence/README.md`](evidence/README.md) |
 | Infrastructure as code (Terraform) | [`infra/`](infra) |
 | Lambda backend (Node.js 22) | [`backend/`](backend) |
 | Frontend single-page app | [`frontend/`](frontend) |
@@ -20,7 +20,7 @@ A serverless, two-Availability-Zone platform for a university with 8,000 student
 Browser ─► Route 53 ─► CloudFront + WAF ─┬─► S3 (static SPA)
                                           └─► /api/* ─► API Gateway (Cognito JWT) ─► Lambda (private subnets, AZ A + B)
                                                                                         │
-                       RDS Proxy ─► RDS PostgreSQL Multi-AZ (primary AZ A ⇄ sync standby AZ B) ◄─┘
+              TLS (RDS Proxy in exam week) ─► RDS PostgreSQL Multi-AZ (primary AZ A ⇄ sync standby AZ B) ◄─┘
 Student ─► presigned POST ─► S3 uploads (KMS, lifecycle 5 y) ─► SQS ─► Lambda ─► SQS ─► Lambda ─► SES email
 Submit / release ─► SQS marking ─► Lambda (auto-mark, email fan-out)        EventBridge 1 min ─► auto-submit
 ```
@@ -32,9 +32,9 @@ Submit / release ─► SQS marking ─► Lambda (auto-mark, email fan-out)    
 | Auto-marking MCQs | SQS marking queue → marking Lambda |
 | 50 MB PDF/ZIP uploads | S3 presigned POST with `content-length-range ≤ 50 MB`, so uploads never pass through the API |
 | Email on results release | Marking worker fan-out → SQS notify → Lambda → SES |
-| Peak of 3,000 starts in 5 minutes | CloudFront caching, Lambda auto-scaling, API throttling with burst 5,000, RDS Proxy connection pooling, SQS buffering |
+| Peak of 3,000 starts in 5 minutes | CloudFront caching, Lambda auto-scaling, API throttling with burst 5,000, 1 DB connection per Lambda (RDS Proxy pooling for exam week), SQS buffering |
 | 99.9% availability and AZ loss | Everything spans 2 AZs. RDS Multi-AZ synchronous standby with automatic failover. One NAT per AZ |
-| RPO ≤ 5 minutes, RTO ≤ 1 hour | Synchronous Multi-AZ (RPO ≈ 0 on AZ loss). PITR with 7-day retention (about 5-minute RPO on corruption). AWS Backup. Terraform rebuild in about 20 minutes |
+| RPO ≤ 5 minutes, RTO ≤ 1 hour | Synchronous Multi-AZ (RPO ≈ 0 on AZ loss). Point-in-time restore (about 5-minute RPO on corruption; 7 days in production, 1 day on the Free plan). AWS Backup. Terraform rebuild in about 20 minutes |
 | 5-year records | S3 lifecycle (IA → Glacier IR → Deep Archive → delete after 5 years). AWS Backup monthly copies kept 1,825 days |
 | Encryption in transit and at rest | TLS everywhere (CloudFront, API, `rds.force_ssl`, S3 TLS-only policy). KMS CMK for RDS, S3, secrets and backups. SSE-SQS |
 
@@ -158,20 +158,20 @@ The demo defaults (`db_deletion_protection = false`, `force_destroy` on buckets)
 
 | Item | ≈ per day |
 |---|---|
-| RDS `db.t4g.micro` Multi-AZ + RDS Proxy | $1.60 |
+| RDS `db.t4g.micro` Multi-AZ (RDS Proxy only on a paid plan) | $1.60 |
 | 2 NAT gateways (set `nat_gateway_count = 0` to save) | $2.20 |
 | SQS interface endpoint (2 AZ) | $0.50 |
 | WAF (web ACL + rules) | $0.30 |
 | Lambda, API Gateway, S3, SQS, SES, CloudFront at demo volume | ≈ $0 (free tier) |
 
-That is about **$4–5 per day**. Destroy the stack after recording the video.
+That is about **$4–5 per day**. Destroy the stack as soon as all evidence screenshots are taken.
 
 ## Repository layout
 
 ```
 architecture/       diagram (Mermaid), walkthroughs, peak/AZ explanation
 docs/services.md    service table
-evidence/           Cloud Architecture Lab + deployment screenshots, video link
+evidence/           Cloud Architecture Lab + deployment screenshots (replace the video, as agreed with the tutor)
 infra/              Terraform: network, database, storage, auth, compute, api, edge, monitoring, backup
 infra/bootstrap/    Terraform state bucket + GitHub OIDC deploy role
 backend/            Lambda handlers, schema.sql, unit tests
