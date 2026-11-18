@@ -15,4 +15,4 @@ The screenshots in this folder were taken following [`docs/step-by-step-guide.md
 | `11-*` | Walkthrough 2 on AWS: 40 MB upload direct to S3, tutor email | AWS deployment |
 | `12-*` | Results release, async email to student, admin view | AWS deployment |
 | `13-*` | Real Multi-AZ failover: AZ swapped, app kept working | AWS deployment |
-| `14-*` | Peak load test | AWS deployment |
+| `14-*` | Peak load test | AWS deploymet |
