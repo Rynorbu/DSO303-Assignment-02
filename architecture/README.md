@@ -168,6 +168,14 @@ The live demo runs on an **AWS Free plan** account. Two settings differ from the
 | 8 | If a save fails, the screen shows "Offline – kept on this device" and tries again on the next tick. No answers are lost. | Browser |
 | 9 | When the student clicks **Submit**, the Lambda puts a message on the **SQS marking queue**. The marking Lambda marks the MCQs automatically. If the student just closes the tab, **EventBridge** submits the attempt when time runs out. | SQS, Lambda, EventBridge |
 
+**Simulated in the Cloud Architecture Lab – HTTP 200 in 138 ms, all 11 steps OK:**
+
+![Walkthrough 1 in the lab](../evidence/architecture/walkthrough-exam-autosave.png)
+
+| Steps 1–4 | Steps 5–8 | Steps 8–11 |
+|---|---|---|
+| ![](../evidence/architecture/timeline-1.png) | ![](../evidence/architecture/timeline-2.png) | ![](../evidence/architecture/timeline-3.png) |
+
 ### Walkthrough 2 – A student uploads a 40 MB assignment and the tutor is notified
 
 | Step | What happens | Services |
@@ -182,6 +190,14 @@ The live demo runs on an **AWS Free plan** account. Two settings differ from the
 | 8 | If any step fails, SQS retries it up to 5 times, then moves the message to a **dead-letter queue** and a CloudWatch alarm emails the team. | SQS DLQ, CloudWatch, SNS |
 | 9 | The tutor clicks **Download** and gets a presigned link valid for 10 minutes. After 30 days the file moves to cheaper storage, and it is **deleted after 5 years**. | S3 lifecycle |
 
+**Simulated in the Cloud Architecture Lab – HTTP 202 Accepted, all 8 steps OK:**
+
+![Walkthrough 2 in the lab](../evidence/architecture/upload-notify.png)
+
+| Steps 1–4 | Steps 5–8 |
+|---|---|
+| ![](../evidence/architecture/notify-timeline-1.png) | ![](../evidence/architecture/notify-timeline-2.png) |
+
 ---
 
 ## 3. How the design handles the exam peak and the loss of one AZ (≤ 300 words)
@@ -189,5 +205,15 @@ The live demo runs on an **AWS Free plan** account. Two settings differ from the
 **Exam peak (3,000 students start within 5 minutes).** This is about 10 exam starts per second plus about 100 autosaves per second (3,000 students saving every 30 seconds). CloudFront serves the website from edge caches, so only API calls reach AWS in the region. API Gateway and Lambda scale automatically: at about 100 ms per request the peak needs only about 20 Lambdas running at once, far below the default limit of 1,000. API throttling (burst 5,000) protects the backend from spikes. Each Lambda holds one database connection, and for exam week the database is raised to `db.m6g.large` with RDS Proxy switched on to pool connections. Slow work (marking, emails, upload processing) waits in SQS queues with capped consumers, so it never competes with students who are still writing. Files go straight to S3, which scales without limits. CloudWatch alarms warn the team about errors, slow responses or high database CPU.
 
 **Loss of one AZ.** Every tier runs in two AZs. Lambdas have network interfaces in private subnets in both AZs, so new requests simply run in the healthy AZ. API Gateway, Cognito, S3, SQS, SES and CloudFront are regional or global services that keep working without any action. The database is **RDS Multi-AZ**: every write is copied synchronously to a standby in the other AZ, and if the primary fails, AWS promotes the standby in about 1–2 minutes, so confirmed answers are not lost (RPO ≈ 0). During the switch the browser keeps answers locally and retries, and the exam deadline is stored on the server, so students lose neither work nor time. Each AZ has its own NAT gateway. For a corrupted database, point-in-time restore (about 5-minute RPO) and AWS Backup recover within the 1-hour RTO.
+
+### Simulated loss of us-east-1a
+
+Everything in us-east-1a is marked failed (red dots). The autosave is served by the api Lambda in AZ B and the timeline shows **Multi-AZ Automated Database Failover** – still **HTTP 200**.
+
+![AZ failure in the lab](../evidence/architecture/az-failure.png)
+
+| Steps 1–4 | Steps 5–8 |
+|---|---|
+| ![](../evidence/architecture/az-failure-timeline-1.png) | ![](../evidence/architecture/az-failure-timeline-2.png) |
 
 > **Tested for real:** a forced RDS failover moved the primary database to the other AZ while the app kept saving answers (see [`../evidence/aws-app`](../evidence/aws-app)).

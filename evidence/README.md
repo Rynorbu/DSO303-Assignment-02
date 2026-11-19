@@ -19,38 +19,45 @@ The live stack ran in **us-east-1** on an AWS Free plan account (see [README –
 
 ### 1.1 The build
 
-![Full architecture in the lab](lab/lab-08-full-architecture.png)
+![Full architecture in the lab](architecture/full-architecture.png)
 
 | Screenshot | What it shows |
 |---|---|
-| [`lab-01-vpc-subnets.png`](lab/lab-01-vpc-subnets.png) | VPC `10.20.0.0/16` with public, app and data subnets in **us-east-1a and us-east-1b** |
-| [`lab-02-routing.png`](lab/lab-02-routing.png) | Internet gateway, one NAT gateway per AZ, public and private route tables, S3 gateway endpoint |
-| [`lab-03-edge.png`](lab/lab-03-edge.png) | Users → CloudFront (+ WAF) → S3 website and API Gateway, Cognito sign-in |
-| [`lab-04-api-compute.png`](lab/lab-04-api-compute.png) | API and worker Lambdas in **lambda-sg** in both AZs, SQS endpoints in **vpce-sg** |
-| [`lab-05-database.png`](lab/lab-05-database.png) | RDS **primary (1a)** and **standby (1b)** in private data subnets, **rds-sg** allows 5432 only from lambda-sg |
-| [`lab-06-storage-async.png`](lab/lab-06-storage-async.png) | Uploads bucket, marking / uploads / notify queues, DLQs, EventBridge, notify Lambda, SES |
-| [`lab-07-security-ops-cicd.png`](lab/lab-07-security-ops-cicd.png) | KMS, Secrets Manager, Backup, CloudWatch, SNS, CloudTrail, GitHub → OIDC → IAM |
-| [`lab-08-full-architecture.png`](lab/lab-08-full-architecture.png) | The whole design |
+| [`full-architecture.png`](architecture/full-architecture.png) | The whole design: VPC `10.20.0.0/16`, public / app / data subnets in **us-east-1a and us-east-1b**, every service |
+| [`edgee.png`](architecture/edgee.png) | Users → CloudFront (+ WAF) → S3 website and API Gateway, Cognito groups, admin Lambda |
+| [`subnets.png`](architecture/subnets.png) | api and worker Lambdas in **lambda-sg** in both AZs, SQS endpoints in **vpce-sg**, RDS **primary (1a)** and **standby (1b)** in **rds-sg** |
+| [`routes.png`](architecture/routes.png) | Internet gateway, public route table → IGW, one private route table per AZ → its own NAT, S3 gateway endpoint |
+| [`storage-async.png`](architecture/storage-async.png) | Uploads bucket, uploads / marking / notify queues, DLQs, notify Lambda → SES, EventBridge, KMS, secret, Backup, CloudWatch → SNS, CloudTrail |
 
 ### 1.2 Simulation 1 – Student opens an exam and answers autosave
 
-![Walkthrough 1 simulated](lab/lab-sim-1-exam-autosave.png)
+![Walkthrough 1 simulated](architecture/walkthrough-exam-autosave.png)
 
-`PUT /api/attempts/{id}/answers` → CloudFront → API Gateway → api Lambda in AZ A (security group allowed) → RDS primary on port 5432 (rds-sg allowed) → **HTTP 200**.
+| Steps 1–4 | Steps 5–8 | Steps 8–11 |
+|---|---|---|
+| ![](architecture/timeline-1.png) | ![](architecture/timeline-2.png) | ![](architecture/timeline-3.png) |
+
+Student → CloudFront (cache miss for `/api/*`) → API Gateway → api Lambda in AZ A (**lambda-sg allowed**) → RDS primary on port 5432 (**rds-sg allowed**) → query committed → **HTTP 200 in 138 ms**, all 11 steps OK.
 
 ### 1.3 Simulation 2 – Student uploads a 40 MB assignment, tutor notified
 
-![Walkthrough 2 simulated](lab/lab-sim-2-upload-notify.png)
+![Walkthrough 2 simulated](architecture/upload-notify.png)
 
-The browser uploads straight to the **S3 uploads bucket** → S3 event to the **SQS uploads queue** → worker Lambdas in both AZs pick up the message (IAM allows `sqs:ReceiveMessage`) → **HTTP 202 (accepted)**. The notify queue → notify Lambda → SES email is the next step on the diagram.
+| Steps 1–4 | Steps 5–8 |
+|---|---|
+| ![](architecture/notify-timeline-1.png) | ![](architecture/notify-timeline-2.png) |
+
+The browser uploads straight to the **S3 uploads bucket** → S3 event to the **SQS uploads queue** → Lambda event source mapping → worker Lambdas in **AZ A and AZ B** receive the message → **HTTP 202 Accepted**, all 8 steps OK. The notify queue → notify Lambda → SES email is the next step on the diagram.
 
 ### 1.4 Simulation 3 – Loss of Availability Zone us-east-1a
 
-| Before (all healthy) | After (us-east-1a failed) |
-|---|---|
-| ![Before](lab/lab-sim-3-az-failure-before.png) | ![After](lab/lab-sim-3-az-failure-after.png) |
+![AZ failure simulated](architecture/az-failure.png)
 
-With the Lambda, NAT, endpoint and database primary in us-east-1a marked as **failed**, API Gateway removes the failed target and sends the request to the **api Lambda in AZ B**, and the timeline shows **"Multi-AZ Automated Database Failover"** – the standby is promoted with zero data loss. The request still returns **HTTP 200**.
+| Steps 1–4 | Steps 5–8 |
+|---|---|
+| ![](architecture/az-failure-timeline-1.png) | ![](architecture/az-failure-timeline-2.png) |
+
+The api Lambda, worker Lambda, NAT, SQS endpoint and **database primary in us-east-1a are marked failed** (red dots). The autosave `PUT /api/attempts/{id}/answers` is sent to the **api Lambda in AZ B**, and the timeline shows **"Multi-AZ Automated Database Failover"** – the standby is promoted. The request still returns **HTTP 200**.
 
 ---
 
@@ -64,7 +71,7 @@ The rubric asks for **frontend, API, two-AZ database, S3 uploads and the async s
 |---|---|
 | ![Login page on CloudFront](aws-app/app-login-page.png) | ![Tutor dashboard](aws-app/tutor-dashboard.png) |
 
-The app is served over HTTPS from the CloudFront URL. Users were created in Cognito groups ([`users-created.png`](aws-app/users-created.png), [`cognito-groups.png`](aws-console/cognito-groups.png)).
+The app is served over HTTPS from the CloudFront URL. Users were created in Cognito groups ([`users-created.png`](aws-app/users-created.png), [`cognito-groups.png`](aws-console/cognito-groups.png)). The Lambdas run in private subnets in 2 AZs ([`lamda-vpc.png`](aws-console/lamda-vpc.png)).
 
 ### 2.2 API (API Gateway + Lambda) – exam and 30-second autosave
 
@@ -97,7 +104,7 @@ The browser's network tab shows the file going to `…s3.amazonaws.com`, not to 
 | ![MCQs auto-marked](aws-app/auto-marked.png) | ![Tutor email](aws-app/tutor-email.png) |
 
 - **Marking:** on submit, a message goes to the SQS marking queue and the marking Lambda scores the MCQs ([`marking-log.png`](aws-app/marking-log.png), [`sqs-marking-monitoring.png`](aws-app/sqs-marking-monitoring.png)).
-- **Upload → email:** S3 event → uploads queue → upload Lambda → notify queue → notify Lambda → SES email to the tutor ([`upload-lambda-log.png`](aws-app/upload-lambda-log.png), [`notify-lambda-log.png`](aws-app/notify-lambda-log.png)).
+- **Upload → email:** S3 event → uploads queue → upload Lambda → notify queue → notify Lambda → SES email to the tutor ([`upload-lambda-log.png`](aws-app/upload-lambda-log.png), [`notify-lambda-log.png`](aws-app/notify-lambda-log.png)). SES identities are verified ([`ses-verified.png`](aws-console/ses-verified.png)).
 - **Results:** the tutor marks the short answers and releases results, which emails the students ([`manual-marking.png`](aws-app/manual-marking.png), [`results-released.png`](aws-app/results-released.png)).
 
 ### 2.6 Peak load test
@@ -114,10 +121,10 @@ The browser's network tab shows the file going to `…s3.amazonaws.com`, not to 
 |---|---|
 | Network (2 AZs) | [`vpc`](aws-console/vpc.png), [`subnets-2az`](aws-console/subnets-2az.png), [`subnet-us-east-1b`](aws-console/subnet-us-east-1b.png), [`nat-gateway`](aws-console/nat-gateway.png), [`route-public`](aws-console/route-public.png), [`route-private`](aws-console/route-private.png), [`gateway-endpoint1`](aws-console/gateway-endpoint1.png), [`interface-endpoint`](aws-console/interface-endpoint.png), [`security-groups`](aws-console/security-groups.png), [`rds-sg-inbound`](aws-console/rds-sg-inbound.png) |
 | Database | [`database`](aws-console/database.png), [`databse-configuration`](aws-console/databse-configuration.png), [`rds-private`](aws-console/rds-private.png), [`rds-backups`](aws-console/rds-backups.png), [`db-connection`](aws-console/db-connection.png), [`secrets-manager`](aws-console/secrets-manager.png) |
-| Compute and API | [`lambda-functions`](aws-console/lambda-functions.png), [`lambda-monitor`](aws-console/lambda-monitor.png), [`api-routes`](aws-console/api-routes.png), [`api-authorizer`](aws-console/api-authorizer.png), [`cognito-groups`](aws-console/cognito-groups.png) |
+| Compute and API | [`lambda-functions`](aws-console/lambda-functions.png), [`lambda-monitor`](aws-console/lambda-monitor.png), [`lamda-vpc`](aws-console/lamda-vpc.png), [`api-routes`](aws-console/api-routes.png), [`api-authorizer`](aws-console/api-authorizer.png), [`cognito-groups`](aws-console/cognito-groups.png) |
 | Edge | [`origin`](aws-console/origin.png), [`cloud-front-behaviour`](aws-console/cloud-front-behaviour.png), [`waf-rules`](aws-console/waf-rules.png) |
 | Storage and async | [`s3-buckets`](aws-console/s3-buckets.png), [`s3-lifecycle`](aws-console/s3-lifecycle.png), [`s3-properties`](aws-console/s3-properties.png), [`s3-events`](aws-console/s3-events.png), [`s3-permissions`](aws-console/s3-permissions.png), [`sqs-queues`](aws-console/sqs-queues.png), [`sqs-daed-letter-quqe`](aws-console/sqs-daed-letter-quqe.png), [`sqs-trigger`](aws-console/sqs-trigger.png), [`event-bridge`](aws-console/event-bridge.png) |
-| Security and operations | [`kms`](aws-console/kms.png), [`iam-roles`](aws-console/iam-roles.png), [`iam-oidc`](aws-console/iam-oidc.png), [`iam-user`](aws-console/iam-user.png), [`cloud-watch-dashboard`](aws-console/cloud-watch-dashboard.png), [`cloud-watch-arlams`](aws-console/cloud-watch-arlams.png), [`sns-arlam-subscription`](aws-console/sns-arlam-subscription.png), [`cloud-trail`](aws-console/cloud-trail.png), [`aws-backup`](aws-console/aws-backup.png), [`tag-editor`](aws-console/tag-editor.png) |
+| Security and operations | [`kms`](aws-console/kms.png), [`iam-roles`](aws-console/iam-roles.png), [`iam-oidc`](aws-console/iam-oidc.png), [`iam-user`](aws-console/iam-user.png), [`cloud-watch-dashboard`](aws-console/cloud-watch-dashboard.png), [`cloud-watch-arlams`](aws-console/cloud-watch-arlams.png), [`sns-arlam-subscription`](aws-console/sns-arlam-subscription.png), [`subscription-confirmed`](aws-console/subscription-confirmed.png), [`ses-verified`](aws-console/ses-verified.png), [`cloud-trail`](aws-console/cloud-trail.png), [`aws-backup`](aws-console/aws-backup.png), [`tag-editor`](aws-console/tag-editor.png) |
 
 ---
 
@@ -127,9 +134,17 @@ The browser's network tab shows the file going to `…s3.amazonaws.com`, not to 
 
 **Push to `main` redeploys automatically:** [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) runs on every push: unit tests → `terraform fmt / validate / plan` → **`terraform apply`** → CloudFront invalidation → `/api/health` smoke test. GitHub signs in to AWS with **OIDC** (no stored keys, [`iam-oidc.png`](aws-console/iam-oidc.png)); settings are repository variables ([`github-variables.png`](AWS/github-variables.png)).
 
-![Pipeline triggered by a push to main, all green](CI/CD/pipeline.png)
+| Pipeline triggered by a push to `main` | Every deploy step green |
+|---|---|
+| ![](CI/CD/pipeline.png) | ![](CI/CD/steps-summary.png) |
 
-**Tear-down from code:** the *Tear down* workflow ([`destroy.yml`](../.github/workflows/destroy.yml)) runs `terraform destroy` after typing `DESTROY`.
+![Terraform plan and apply inside GitHub Actions](CI/CD/terraform-apply-log.png)
+
+**Tear-down from code:** the *Tear down* workflow ([`destroy.yml`](../.github/workflows/destroy.yml)) runs `terraform destroy` after typing `DESTROY`. It succeeded:
+
+![Tear down succeeded](aws-console/teardown-success.png)
+
+After the teardown no `exam-platform-prod` NAT gateways or databases remain. The `yonten-*` resources in [`resource-gone.png`](aws-console/resource-gone.png) and [`resource-gone-1.png`](aws-console/resource-gone-1.png) belong to another student's project in the shared class account.
 
 ---
 
