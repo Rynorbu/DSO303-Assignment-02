@@ -49,7 +49,7 @@
           "y": 60
         },
         "data": {
-          "label": "exam-platform-prod-public-us-east-1a · real CIDR 10.20.0.0/24",
+          "label": "exam-platform-prod-public-us-east-1a \u00b7 real CIDR 10.20.0.0/24",
           "boundaryType": "public_subnet",
           "cidr": "10.20.0.0/24",
           "totalAddresses": 256,
@@ -121,7 +121,7 @@
           "y": 60
         },
         "data": {
-          "label": "exam-platform-prod-public-us-east-1b · real CIDR 10.20.1.0/24",
+          "label": "exam-platform-prod-public-us-east-1b \u00b7 real CIDR 10.20.1.0/24",
           "boundaryType": "public_subnet",
           "cidr": "10.20.1.0/24",
           "totalAddresses": 256,
@@ -193,7 +193,7 @@
           "y": 340
         },
         "data": {
-          "label": "exam-platform-prod-app-us-east-1a · real CIDR 10.20.10.0/24",
+          "label": "exam-platform-prod-app-us-east-1a \u00b7 real CIDR 10.20.10.0/24",
           "boundaryType": "private_subnet",
           "cidr": "10.20.10.0/24",
           "totalAddresses": 256,
@@ -265,7 +265,7 @@
           "y": 340
         },
         "data": {
-          "label": "exam-platform-prod-app-us-east-1b · real CIDR 10.20.11.0/24",
+          "label": "exam-platform-prod-app-us-east-1b \u00b7 real CIDR 10.20.11.0/24",
           "boundaryType": "private_subnet",
           "cidr": "10.20.11.0/24",
           "totalAddresses": 256,
@@ -337,7 +337,7 @@
           "y": 800
         },
         "data": {
-          "label": "exam-platform-prod-data-us-east-1a · real CIDR 10.20.20.0/24",
+          "label": "exam-platform-prod-data-us-east-1a \u00b7 real CIDR 10.20.20.0/24",
           "boundaryType": "private_subnet",
           "cidr": "10.20.20.0/24",
           "totalAddresses": 256,
@@ -409,7 +409,7 @@
           "y": 800
         },
         "data": {
-          "label": "exam-platform-prod-data-us-east-1b · real CIDR 10.20.21.0/24",
+          "label": "exam-platform-prod-data-us-east-1b \u00b7 real CIDR 10.20.21.0/24",
           "boundaryType": "private_subnet",
           "cidr": "10.20.21.0/24",
           "totalAddresses": 256,
@@ -2797,6 +2797,82 @@
         },
         "selected": false,
         "dragging": false
+      },
+      {
+        "id": "route53",
+        "type": "serviceNode",
+        "position": {
+          "x": -980,
+          "y": 200
+        },
+        "data": {
+          "serviceId": "route53",
+          "label": "Route 53: exams.uni.ac.uk (alias to CloudFront)",
+          "category": "Networking & Content Delivery",
+          "health": "healthy",
+          "az": "Edge / Global",
+          "subnet": "global",
+          "replicas": 1,
+          "multiAz": false,
+          "width": 140,
+          "height": 98,
+          "isSimulating": false,
+          "simulationStatus": "idle",
+          "customConfig": {
+            "records": [
+              "A/AAAA alias -> CloudFront",
+              "ACM DNS validation"
+            ]
+          }
+        },
+        "zIndex": 10,
+        "measured": {
+          "width": 140,
+          "height": 98
+        },
+        "style": {
+          "width": 140,
+          "height": 98
+        },
+        "selected": false,
+        "dragging": false
+      },
+      {
+        "id": "acm",
+        "type": "serviceNode",
+        "position": {
+          "x": -980,
+          "y": 20
+        },
+        "data": {
+          "serviceId": "acm",
+          "label": "ACM certificate (us-east-1, TLS 1.2+)",
+          "category": "Security, Identity & Compliance",
+          "health": "healthy",
+          "az": "Edge / Global",
+          "subnet": "global",
+          "replicas": 1,
+          "multiAz": false,
+          "width": 140,
+          "height": 98,
+          "isSimulating": false,
+          "simulationStatus": "idle",
+          "customConfig": {
+            "validation": "DNS",
+            "minimumProtocol": "TLSv1.2_2021"
+          }
+        },
+        "zIndex": 10,
+        "measured": {
+          "width": 140,
+          "height": 98
+        },
+        "style": {
+          "width": 140,
+          "height": 98
+        },
+        "selected": false,
+        "dragging": false
       }
     ],
     "edges": [
@@ -4263,6 +4339,84 @@
           "isFailing": false,
           "flowStatus": "idle",
           "description": "sts:AssumeRoleWithWebIdentity -> exam-platform-github-deploy (no stored keys)"
+        }
+      },
+      {
+        "zIndex": 1000,
+        "source": "user",
+        "sourceHandle": "source-right",
+        "target": "route53",
+        "targetHandle": "target-left",
+        "id": "edge-dns-user-route53",
+        "type": "custom",
+        "markerEnd": {
+          "type": "arrowclosed",
+          "color": "#94A3B8"
+        },
+        "data": {
+          "relationship": "dependency",
+          "protocol": "DNS",
+          "transport": "UDP",
+          "lineStyle": "straight",
+          "interactionType": "synchronous",
+          "isCriticalDependency": false,
+          "timeoutMs": 2500,
+          "isSimulating": false,
+          "isFailing": false,
+          "flowStatus": "idle",
+          "description": "Browser resolves exams.uni.ac.uk"
+        }
+      },
+      {
+        "zIndex": 1000,
+        "source": "route53",
+        "sourceHandle": "source-right",
+        "target": "cloudfront",
+        "targetHandle": "target-left",
+        "id": "edge-dns-route53-cloudfront",
+        "type": "custom",
+        "markerEnd": {
+          "type": "arrowclosed",
+          "color": "#94A3B8"
+        },
+        "data": {
+          "relationship": "dependency",
+          "protocol": "DNS",
+          "transport": "UDP",
+          "lineStyle": "straight",
+          "interactionType": "synchronous",
+          "isCriticalDependency": false,
+          "timeoutMs": 2500,
+          "isSimulating": false,
+          "isFailing": false,
+          "flowStatus": "idle",
+          "description": "Alias record points to the CloudFront distribution"
+        }
+      },
+      {
+        "zIndex": 1000,
+        "source": "acm",
+        "sourceHandle": "source-right",
+        "target": "cloudfront",
+        "targetHandle": "target-left",
+        "id": "edge-acm-cloudfront",
+        "type": "custom",
+        "markerEnd": {
+          "type": "arrowclosed",
+          "color": "#94A3B8"
+        },
+        "data": {
+          "relationship": "dependency",
+          "protocol": "HTTPS",
+          "transport": "HTTPS",
+          "lineStyle": "straight",
+          "interactionType": "synchronous",
+          "isCriticalDependency": false,
+          "timeoutMs": 2500,
+          "isSimulating": false,
+          "isFailing": false,
+          "flowStatus": "idle",
+          "description": "TLS certificate for the custom domain"
         }
       }
     ],
